@@ -251,6 +251,7 @@ The Issuer is the **entityID of the IDP that produced this assertion**. It looks
   - `entityID` = a SAML entity's stable identifier (an IDP has one; each SP has one)
   - `Audience` = who the assertion is *for* (the SP, in `<AudienceRestriction>`)
   - For IDPs, `Issuer` value == `entityID` of the IDP, byte-for-byte.
+  - **Issuer vs SSO URL**: different concepts, often the same hostname. See next slide.
 
 </v-clicks>
 
@@ -307,6 +308,66 @@ It's the SAML equivalent of accidentally pointing production at the dev
 database. The fix is procedural: per-environment entityIDs, enforced by IaC.
 End the slide with the operational rule at the bottom — Issuer is infra,
 change it with the same care as a cert rotation.
+-->
+
+
+---
+
+# Issuer vs SSO URL — different things, same hostname
+
+The Issuer and the SSO URL **often share a hostname**, but they answer different questions. Conflating them is a common IDP-configuration mistake.
+
+<v-clicks>
+
+- 🏷️ **`Issuer` is a *name*.** "This assertion was issued by `https://idp.example.com`." Same string in metadata (`entityID`), in every assertion, in audit logs. Stable identifier. Not an endpoint.
+- 🔗 **`SingleSignOnService` is an *endpoint*.** "Send your AuthnRequest *here*: `https://idp.example.com/sso`." Where the SSO protocol actually runs. Lives inside `<IDPSSODescriptor>` of metadata.
+- 🌐 **Same hostname ≠ same thing.** They share `https://idp.example.com`, but:
+  - Change your SSO path (`/sso` → `/saml/sso`) — Issuer stays, the endpoint moves. SPs that cache SSO URL need a refresh; SPs that pin Issuer don't.
+  - Change your hostname (`idp.example.com` → sso.example.com) — both Issuer and SSO URL change. *Everything* breaks.
+  - Add a tenant path (`idp.example.com/tenant-a`) — Issuer becomes `idp.example.com/tenant-a`, SSO URL keeps `idp.example.com/sso`. Multi-tenancy pattern: per-tenant Issuer, single SSO endpoint.
+- 🚫 **Don't reuse the SSO URL as the Issuer** unless you're sure. It's the most common copy-paste error. The Issuer should be the IDP's *identity*, not its *address*.
+
+</v-clicks>
+
+<div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+<div>
+
+**Issuer (identity)**
+
+```
+https://idp.example.com
+```
+
+👆 One per IDP. Stable. Federated.
+
+</div>
+<div>
+
+**SSO URL (endpoint)**
+
+```
+https://idp.example.com/sso
+```
+
+👆 One per IDP. May change with deployments.
+
+</div>
+</div>
+
+<!--
+This is one of the most confusing things for new IDP engineers because both
+strings look like URLs. They're not the same kind of URL. Issuer is a name —
+it identifies *who* issued the assertion, like a signature on a letter. SSO
+URL is an address — it tells the SP *where to send mail*. The same way you
+can move offices and keep your name, you can change the SSO path without
+changing the Issuer, and vice versa. Three rules of thumb: 1) Issuer is
+identity, SSO URL is location. 2) Same hostname is convention, not
+requirement. 3) When you change one, audit which SPs cache which. SPs that
+pin Issuer need an explicit allowlist update; SPs that pin SSO URL just need
+to refresh metadata. The bottom grid shows the typical case where both look
+almost identical — the only difference is the trailing path on the SSO URL.
+Hit the visual point: in 90% of single-IDP deployments Issuer and SSO URL
+share a hostname, and that's fine, but they answer different questions.
 -->
 
 
