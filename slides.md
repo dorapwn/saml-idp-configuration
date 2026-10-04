@@ -526,7 +526,7 @@ kc.sh export --realm acme --file acme-realm.json --users realm_file
 #   Choose "SAML SP Metadata"
 ```
 
-```hocon {1-15}
+```json {1-15}
 # realm-export.json — Keycloak SP client excerpt
 "acme-hr": {
   "clientId": "https://hr.acme.com",
