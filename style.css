@@ -1,0 +1,6 @@
+/* Hide the Slidev Goto-dialog autocomplete dropdown until the user
+ * types a query. The setup/main.ts file toggles a `goto-has-query`
+ * class on #slidev-goto-dialog based on input emptiness. */
+#slidev-goto-dialog:not(.goto-has-query) .autocomplete-list {
+  display: none !important;
+}
