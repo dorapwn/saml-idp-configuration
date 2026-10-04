@@ -1,3 +1,4 @@
+
 ---
 
 theme: seriph
@@ -19,6 +20,7 @@ mdc: true
 fonts:
   sans: Inter
   mono: 'JetBrains Mono'
+
 ---
 
 # Configuring an Identity Provider with SAML 2.0
@@ -38,13 +40,17 @@ fonts:
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: two-cols
 
+
+# Visualizing the trust triangle
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Why SAML, why now?
@@ -66,13 +72,17 @@ SAML 2.0 is the **lingua franca** of enterprise federation. Even in 2026, when O
 <!--
 Quick framing: SAML 2.0 is from 2005 and we're still using it because enterprise federation moves slowly and the standard is good enough. OIDC dominates new apps but won't replace SAML in regulated environments for the foreseeable future. So you need to know it.
 -->
+
 ---
 
 layout: center
 
+
+# Three concepts in 30 seconds
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # What we'll cover
@@ -94,13 +104,17 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Walking through the agenda — 9 chapters, the deck goes deep on the trust foundation and the IDP setup walkthroughs because those are where the real time goes. I'll skip the troubleshooting chapter's details live and refer people to it during Q&A.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 1 · What SAML actually is
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 1 · 🎭 SAML in 30 Seconds
@@ -110,14 +124,18 @@ The mental model that makes the rest click.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: two-cols
+
+# Mental model — the parties
 layoutClass: gap-8
 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Three actors, one dance
@@ -141,13 +159,17 @@ The **user never gets a password** at the SP. The SP just trusts whatever the ID
 <!--
 The mental model: three actors — IDP, SP, and the user. The user authenticates at the IDP. The SP never sees a password. The SP just trusts a signed assertion. That's the whole game in one diagram. Take a moment here, this is the foundation for everything else.
 -->
+
 ---
 
 layout: center
 
+
+# In one picture
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # The SAML assertion
@@ -212,6 +234,7 @@ slides — pause briefly at the end to tee them up: "let's spend a moment on
 this Issuer field specifically, because it deserves more than a single line."
 -->
 
+
 ---
 
 # Meet `<saml:Issuer>` — who signed this thing?
@@ -247,6 +270,7 @@ is the SP and lives in Conditions/AudienceRestriction, not in the Issuer slot.
 If you take one thing from this slide, let it be: the Issuer string in your
 assertions must match, byte-for-byte, what the SP has on its trusted list.
 -->
+
 
 ---
 
@@ -285,13 +309,17 @@ End the slide with the operational rule at the bottom — Issuer is infra,
 change it with the same care as a cert rotation.
 -->
 
+
 ---
 
 layout: section
 
+
+# Concept 2 · Assertions
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 2 · 🧩 The four concepts you must internalize
@@ -301,6 +329,7 @@ Roles are easy. These four are where 80% of SAML bugs hide.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Concept 1 · Bindings
@@ -323,6 +352,7 @@ A **binding** = the wire format + transport for SAML messages. The same logical 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Concept 2 · Profiles
@@ -343,6 +373,7 @@ A **profile** = a complete end-to-end flow combining assertions + bindings + rol
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Concept 3 · NameID formats
@@ -365,6 +396,7 @@ The `<saml:NameID>` is *the* primary user identifier in the assertion. Its `Form
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Concept 4 · Metadata
@@ -398,13 +430,17 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 3 · Bindings
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 3 · 🔐 Trust foundation
@@ -414,6 +450,7 @@ Before a single message flies, you need crypto. **And for a SAML IDP, crypto mea
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Two keypairs, not one
@@ -432,6 +469,7 @@ A SAML deployment runs on **two independent asymmetric keypairs** on the IDP, wi
 <!--
 This is where I want to slow down. Most SAML failures and most SAML security incidents trace back to people treating signing and encryption as the same thing. They're not. Signing keys prove identity — they let the SP verify that an assertion really came from your IDP. Encryption keys protect confidentiality — they let the IDP send an assertion that only the SP can read. The threat model is different, so the keys should be different. If I steal your signing key I can forge new assertions. If I steal your encryption key I can decrypt old ones. In both cases the damage is bad but contained to one capability, not both. That's the argument for separation.
 -->
+
 ---
 
 # What an `<EncryptedAssertion>` actually contains
@@ -489,6 +527,7 @@ is gone — there's no <saml:Assertion> element, only
 people think encryption replaces signing. It doesn't.
 -->
 
+
 ---
 
 # Key descriptors in metadata
@@ -534,6 +573,7 @@ the code block above are illustrative — they don't affect the actual
 metadata parsing.
 -->
 
+
 ---
 
 # Generating the keypairs — OpenSSL
@@ -570,6 +610,7 @@ openssl req -new -x509 -key idp-encryption.key -out idp-encryption.crt \
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Configuring both certs in your IDP
@@ -589,6 +630,7 @@ The same five settings, applied to **both** keypairs.
 <!--
 Five settings applied to both keypairs. The principle is symmetry: treat signing and encryption with the same operational rigor. Different aliases in your keystore, both published in metadata, both documented in your runbook, both rotated on a schedule. If you only audit signing cert rotation, your encryption cert will expire silently and the day someone enables EncryptedAssertion everything breaks.
 -->
+
 ---
 
 # Cert rotation — the operation that breaks everything
@@ -619,6 +661,7 @@ Cert rotation is the single most common cause of "the IDP was working yesterday 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Signature & digest algorithms
@@ -641,13 +684,17 @@ Don't leave these at defaults blindly. As of 2026, modern SAML stacks should use
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 5 · Authentication flows
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 4 · 🤝 The configuration handshake
@@ -657,6 +704,7 @@ Metadata in, metadata out. URLs match. Certs match. Tests pass.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # The seven values that must agree
@@ -688,6 +736,7 @@ For SP-initiated SSO to work, the **IDP and SP must agree** on:
 <!--
 These seven values must match exactly between IDP and SP. No graceful fallback, no helpful error message. Just a 401 or an infinite redirect loop. This slide is the single most important slide in the whole deck for someone debugging a broken integration. Memorize it.
 -->
+
 ---
 
 # Metadata exchange — the right way
@@ -703,13 +752,17 @@ These seven values must match exactly between IDP and SP. No graceful fallback, 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 6 · Single logout
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 5 · ⚙️ Step-by-step IDP setup
@@ -719,6 +772,7 @@ The same five-step recipe, three different IDPs.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: two-cols
@@ -727,6 +781,7 @@ layoutClass: gap-6
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Recipe for any IDP
@@ -763,6 +818,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 The five-step recipe works for every IDP, regardless of vendor. Create the app, configure SAML settings, upload metadata, map attributes, assign users. The next three slides apply this to specific vendors.
 -->
+
 ---
 
 # Okta
@@ -809,6 +865,7 @@ attribute_statements:
 <!--
 Okta YAML — note the Okta-specific quirks. The issuer is Okta's own URL with a per-app random suffix. The audience must match your SP's entityID exactly. The attribute statements use Okta's expression language — \${user.email}, \${user.firstName} etc. The regex type with value '.*' on groups means Okta will emit every group the user is a member of as a separate attribute value.
 -->
+
 ---
 
 # Microsoft Entra ID (Azure AD)
@@ -845,6 +902,7 @@ Set-MgApplication -ApplicationId $appId -BodyParameter $params
 <!--
 Azure AD / Entra ID specifics. Default NameID is the UPN — user@tenant.onmicrosoft.com — which is almost never what your SP wants. Use the Identifier transform to remap it to email. Also note the lifecycle story is different here — Entra has its own provisioning engine that may overlap or conflict with your SAML config.
 -->
+
 ---
 
 # Keycloak
@@ -888,13 +946,17 @@ kc.sh export --realm acme --file acme-realm.json --users realm_file
 <!--
 Keycloak is the open-source option and the most flexible. The clientId becomes the entityID, the redirectUris list gates which ACS URLs are accepted, and the attributes section controls signature algorithms and NameID format. If you're building your own IDP, study the Keycloak export format — it's a reference implementation of SAML.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 7 · Configuration handshake
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 6 · 📨 Attribute mapping & NameID strategies
@@ -904,6 +966,7 @@ The IDP passes user data; the SP decides what to do with it.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # The attribute statement, decoded
@@ -936,6 +999,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Two flavors of attribute name — basic (short names like 'email') and uri (long namespaced names like Microsoft's claim URLs). Pick one and be consistent. The SP iterates over multiple AttributeValue elements as a list — this is how you send multiple groups or roles.
 -->
+
 ---
 
 # NameID strategy decision tree
@@ -959,6 +1023,7 @@ Two flavors of attribute name — basic (short names like 'email') and uri (long
 <!--
 Read the recommendation at the bottom. Persistent whenever possible. Email as fallback. Transient only for genuinely anonymous flows. If you take one operational lesson from this deck, let it be this one.
 -->
+
 ---
 
 # Just-in-Time (JIT) provisioning
@@ -984,13 +1049,17 @@ A major SAML pattern: **let the IDP create users on the SP at first login.**
 <!--
 JIT is great for reducing onboarding friction but creates a lifecycle problem — deprovisioning. If a user leaves the company, the SP doesn't know to disable their account because they were never explicitly created. Pair JIT with SCIM 2.0 for the lifecycle story to work.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 8 · Attribute mapping
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 7 · 🐛 Real-world troubleshooting
@@ -1000,6 +1069,7 @@ The five SAML errors you'll hit, and how to fix them.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Error 1 · "SAML message not signed" / "Signature validation failed"
@@ -1032,6 +1102,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Error 2 · "Audience does not match"
@@ -1049,6 +1120,7 @@ does not match expected 'https://hr.acme.com'
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Error 3 · Infinite redirect loop
@@ -1072,6 +1144,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Error 4 · "No user found / No matching attribute"
@@ -1095,6 +1168,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Error 5 · Clock skew causing NotOnOrAfter rejection
@@ -1126,6 +1200,7 @@ saml:Assertion rejected: NotOnOrAfter '2026-10-04T08:05:00Z' is in the past
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # The troubleshooting toolkit
@@ -1144,13 +1219,17 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 These are the tools you'll actually reach for. SAML-tracer is the single most valuable — it captures every SAML message in the browser and shows you the actual XML. Without it you're debugging blind. Bookmark samltool.io for quick decode and validation.
 -->
+
 ---
 
 layout: section
 
+
+# Concept 9 · Common failure modes
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 8 · 🛡️ Security hardening
@@ -1160,6 +1239,7 @@ SAML done wrong is a single point of total compromise. Hardening is not optional
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # The SAML security checklist
@@ -1188,6 +1268,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 This is the operational checklist. Run through it before going to production and after any cert change. The four new items — separate keypairs, correct keyUsage, KMS storage, and joint rotation of signing and encryption certs — come from real incident postmortems.
 -->
+
 ---
 
 # Common SAML attack vectors
@@ -1205,13 +1286,17 @@ This is the operational checklist. Run through it before going to production and
 <!--
 These five attack vectors show up in SAML penetration tests. XSW is the scariest because the signature validates but the SP reads a different assertion than the one signed. Modern SAML libraries mitigate this but old ones don't. If you're using a library from 2015, audit it specifically for XSW before going to production.
 -->
+
 ---
 
 layout: section
 
+
+# Production readiness
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
+
 ---
 
 # 9 · 🚀 Beyond SAML
@@ -1221,6 +1306,7 @@ SAML isn't the end of the story — it's the foundation.
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # When to stay with SAML
@@ -1237,6 +1323,7 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 SAML is staying in enterprise B2B and regulated environments for the foreseeable future. If you're selling to large enterprises, government, or healthcare, you must support SAML.
 -->
+
 ---
 
 # When to add OIDC alongside
@@ -1259,6 +1346,7 @@ SAML is staying in enterprise B2B and regulated environments for the foreseeable
 <!--
 OIDC wins for modern apps, mobile, APIs. Most enterprises end up running both. The IDP presents SAML to the old world and OIDC to the new — the user-facing experience is identical.
 -->
+
 ---
 
 # The hybrid identity stack
@@ -1268,13 +1356,17 @@ OIDC wins for modern apps, mobile, APIs. Most enterprises end up running both. T
 <!--
 This is the architecture you'll see in mature enterprise environments. One IDP, multiple protocols — SAML for the legacy and the regulated, OIDC for the modern, SCIM for lifecycle. The user experience is uniform even though the wire protocols differ. The investment in this kind of platform pays off as the application portfolio grows.
 -->
+
 ---
 
 layout: center
 
+
+# Recipe for any IDP
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 # Key takeaways
@@ -1294,9 +1386,13 @@ Advance through this slide; key points will reveal as you click. Take questions 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
 -->
+
 ---
 
 layout: end
+
+# Thank you
+
 ---
 
 # Thanks 🙏
