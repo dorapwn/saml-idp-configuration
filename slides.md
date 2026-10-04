@@ -899,15 +899,6 @@ Advance through this slide; key points will reveal as you click. Take questions 
 
 ---
 
-layout: two-cols
-layoutClass: gap-6
-
-<!--
-Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
--->
-
----
-
 # Recipe for any IDP
 
 <v-clicks>
