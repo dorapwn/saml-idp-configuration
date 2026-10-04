@@ -197,7 +197,7 @@ The **assertion** is the heart of SAML — a signed XML document saying "this us
 </saml:Assertion>
 ```
 
-<div class="text-xs opacity-60 mt-2">Click lines to walk through Issuer → Signature → Subject → Conditions → Authn → Attributes.</div>
+<div class="text-xs opacity-60 mt-2">Click lines to walk through Issuer → Signature → Subject → Conditions → Authn → Attributes. The <code style="background:#fef3c7;padding:0 4px;border-radius:3px">Issuer</code> element on line 4 is the subject of the next two slides.</div>
 
 <!--
 Walking through the assertion XML piece by piece — Issuer, Signature, Subject
@@ -207,6 +207,82 @@ NameID is the primary identity — usually an email or a persistent opaque ID.
 The Conditions tell the SP when the assertion is valid. The Signature is what
 makes the whole thing trustworthy — without it, anyone could forge an assertion.
 Don't skip this slide, it's referenced later in the troubleshooting chapter.
+The Issuer element on line 4 of the example leads directly into the next two
+slides — pause briefly at the end to tee them up: "let's spend a moment on
+this Issuer field specifically, because it deserves more than a single line."
+-->
+
+---
+
+# Meet `<saml:Issuer>` — who signed this thing?
+
+The Issuer is the **entityID of the IDP that produced this assertion**. It looks trivial — a single URI element — but it's the linchpin of signature dispatch and trust routing.
+
+<v-clicks>
+
+- 🎯 **Issuer == IDP's entityID.** Same string in metadata, in every assertion, in audit logs. Not optional. Not free-form. Configure it once, freeze it.
+- 🪪 **SP uses Issuer to look up the right signing cert.** Multi-IDP environments (think: B2B SaaS federating with dozens of enterprise customers) have many `<KeyDescriptor use="signing">` blocks — Issuer tells the SP *which one* to verify against.
+- 🔒 **SP rejects assertions whose Issuer isn't in its trusted list.** Even if the signature is valid, an unknown Issuer = reject. This is the second trust check after signature validation.
+- 🆔 **Issuer vs entityID vs audience** — common confusion:
+  - `Issuer` = who *issued* (the IDP)
+  - `entityID` = a SAML entity's stable identifier (an IDP has one; each SP has one)
+  - `Audience` = who the assertion is *for* (the SP, in `<AudienceRestriction>`)
+  - For IDPs, `Issuer` value == `entityID` of the IDP, byte-for-byte.
+
+</v-clicks>
+
+<!--
+The Issuer element looks like nothing — a single URI inside the assertion —
+but it carries enormous weight. Two things to hammer home on this slide.
+First: in multi-IDP federation (B2B SaaS, government shared services, anything
+where one SP trusts multiple IDPs) the Issuer is the dispatch key. The SP
+receives an assertion, parses the Issuer, looks up the matching signing cert
+in its trusted list, and verifies. Without a correct Issuer dispatch, you
+either accept too much (forgery risk) or reject too much (outage).
+Second: the identity hierarchy — Issuer / entityID / Audience — confuses
+everyone the first time. Use the analogy: Issuer is the author, entityID is
+the author's canonical name, Audience is the intended reader. For an IDP the
+first two are the same string, but they answer different questions. Audience
+is the SP and lives in Conditions/AudienceRestriction, not in the Issuer slot.
+If you take one thing from this slide, let it be: the Issuer string in your
+assertions must match, byte-for-byte, what the SP has on its trusted list.
+-->
+
+---
+
+# Issuer gone wrong — three real failures
+
+<v-clicks>
+
+- ❌ **Issuer URL has trailing slash** — `https://idp.example.com/` vs `https://idp.example.com`. SAML string-compares these. The signature validates, but the SP's trusted-Issuer list doesn't match. Login rejected with "unknown issuer".
+- ❌ **Issuer changed mid-deployment** — your team decided to "clean up" the entityID from `https://idp.acme.com/saml/idp` to `https://idp.acme.com`. Old metadata in caches still works; new assertions don't. SPs that pinned the old value reject everything.
+- ❌ **Two IDPs accidentally share an Issuer** — a staging and a production IDP both configured as `https://idp.example.com`. Production SPs now trust signatures from the staging IDP's signing key. Test users become production users. Real breach, real audit finding.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4">
+
+> 🛡️ **Operational rule:** the IDP's Issuer/URL is *infrastructure*. Change it only with a coordinated cutover: new metadata published first, both old and new signing certs trusted during overlap, then deprecate. Same playbook as cert rotation.
+
+</div>
+
+</v-click>
+
+<!--
+Three real failure patterns, each from a different industry. Read all three.
+The trailing-slash issue is the most common — it's the same class of bug as
+the audience mismatch one we'll see later in the troubleshooting chapter, but
+manifested on a different element. The Issuer-change-mid-deployment story is
+less common but catastrophic when it happens, because SP metadata caches live
+for days and the failure window is silent — login just stops working at
+random intervals as caches roll over. The shared-Issuer-between-staging-and-
+production story is the scariest — I've seen this in two pen-test reports.
+It's the SAML equivalent of accidentally pointing production at the dev
+database. The fix is procedural: per-environment entityIDs, enforced by IaC.
+End the slide with the operational rule at the bottom — Issuer is infra,
+change it with the same care as a cert rotation.
 -->
 
 ---
@@ -1096,6 +1172,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 - ✅ **Validate `InResponseTo`** on every assertion to prevent replay
 - ✅ **Enforce `NotBefore` and `NotOnOrAfter`** — never accept assertions outside the validity window
 - ✅ **Validate `Recipient`** matches your ACS URL exactly
+- ✅ **Pin `<saml:Issuer>` per trusted IDP** — reject assertions from any Issuer not in your allowlist, even if the signature verifies
+- ✅ **Per-environment entityIDs** — never let staging and production IDPs share an Issuer; the SP's trusted list doesn't know which is which
 - ✅ **Enforce HTTPS** on every endpoint — no HTTP fallback
 - ✅ **Encrypt assertions** (`<EncryptedAssertion>`) when transporting sensitive attributes — and require SPs to publish a stable encryption cert
 - ✅ **Sign metadata** so consumers can detect tampering
