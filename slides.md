@@ -64,7 +64,7 @@ layout: center
 
 1. 🎭 SAML in 30 seconds — the mental model
 2. 🧩 Roles, assertions, bindings, profiles
-3. 🔐 Trust foundation — keys, certificates, signing
+3. 🔐 Trust foundation — keys, certificates, signing & encryption
 4. 🤝 The configuration handshake — metadata + entityIDs
 5. ⚙️ Step-by-step IDP setup (Okta, Azure AD, Keycloak)
 6. 📨 Attribute mapping & NameID strategies
@@ -257,24 +257,175 @@ layout: section
 
 # 3 · 🔐 Trust foundation
 
-Before a single message flies, you need crypto.
+Before a single message flies, you need crypto. **And for a SAML IDP, crypto means two independent keypairs** — signing and encryption — each with its own role, metadata descriptor, and rotation lifecycle. This chapter is the deep dive.
 
 ---
 
-# Certificates and signing
+# Two keypairs, not one
 
-**Both sides need asymmetric keys.** The IDP signs assertions and AuthnResponses; the SP verifies. Optionally, the SP signs AuthnRequests and the IDP verifies.
+A SAML deployment runs on **two independent asymmetric keypairs** on the IDP, with **one optional** on the SP. Most outages and security incidents come from conflating them. Separate them mentally, separate them in metadata, separate them in your key store.
 
 <v-clicks>
 
-- 🔑 **Self-signed cert is fine** — both sides explicitly trust the other's certificate via metadata. No public CA needed.
-- 🔁 **Rotation is your problem** — when the cert expires (typically 1–3 years), publish new metadata *before* the cutover. Have an overlap window of at least 2 weeks.
-- 📌 **At minimum, configure two things on the IDP:**
-  1. The signing certificate (and key) for assertions
-  2. A separate optional encryption certificate (for `<EncryptedAssertion>`)
-- 🔍 **Always export the certificate as `-----BEGIN CERTIFICATE-----` PEM, without the private key, when pasting into SP config.**
+- 🔏 **Signing keypair (IDP, mandatory)** — private key signs `<Assertion>` and `<Response>`; SP holds the public cert to verify. Direction: **IDP → SP**.
+- 🔐 **Encryption keypair (IDP, mandatory if any assertion contains sensitive attrs)** — SP holds the public cert; IDP uses it to encrypt the `<EncryptedAssertion>` blob. Direction: **SP → IDP** for the cert, **IDP → SP** for the encrypted payload.
+- ✍️ **Signing keypair (SP, optional but recommended)** — private key signs `<AuthnRequest>`; IDP verifies. Used when the IDP rejects unsigned AuthnRequests.
+- 🚫 **Why two keypairs?** Compromise of one shouldn't silently grant both impersonation (sign) and decryption (read). Defense in depth: encrypt with key X, sign with key Y, so stealing signing key ≠ reading past assertions, and stealing encryption key ≠ forging future ones.
 
 </v-clicks>
+
+---
+
+# What an `<EncryptedAssertion>` actually contains
+
+When encryption is on, the wire looks like this. Notice the **plaintext assertion is gone** — the SP unwraps it locally with its private key.
+
+<v-clicks>
+
+1. IDP builds the assertion XML exactly as before (Subject, Conditions, Attributes).
+2. IDP generates a random **session key** (AES-256).
+3. IDP encrypts the assertion XML with the session key → `<xenc:EncryptedData>`.
+4. IDP encrypts the session key with the **SP's public encryption cert** (RSA-OAEP) → `<xenc:EncryptedKey>`.
+5. Both blobs ship inside `<saml:EncryptedAssertion>` in place of `<saml:Assertion>`.
+6. SP decrypts the session key with its private key, then decrypts the assertion.
+7. SP verifies the embedded `<ds:Signature>` against the IDP's signing cert — **encryption ≠ authenticity**.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4">
+
+```xml {all|2-3|5-8|10-12|14-15}
+<saml:EncryptedAssertion>
+  <xenc:EncryptedData Type="...element" xmlns:xenc="...xmlenc#">
+    <xenc:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc"/>
+    <ds:KeyInfo><xenc:EncryptedKey>...</xenc:EncryptedKey></ds:KeyInfo>
+    <xenc:CipherData>
+      <xenc:CipherValue>base64(AES-256(plaintext_assertion))</xenc:CipherValue>
+    </xenc:CipherData>
+  </xenc:EncryptedData>
+</saml:EncryptedAssertion>
+
+<!-- The SP unwraps EncryptedKey with its private RSA key,
+     then uses that to decrypt CipherValue. -->
+<!-- Signature on the plaintext is verified separately
+     against the IDP's SIGNING cert, not the encryption cert. -->
+```
+
+</div>
+
+</v-click>
+
+---
+
+# Key descriptors in metadata
+
+Metadata declares **which cert is for what**. SPs and IDPs parse this — sending the wrong cert in the wrong slot means broken trust.
+
+<v-clicks>
+
+- `<KeyDescriptor use="signing">` — public cert the *peer* uses to **verify** signatures I produce
+- `<KeyDescriptor use="encryption">` — public cert a peer uses to **encrypt** data destined for me
+- A cert can be both — declare it twice, once per `use`. Don't share private keys between roles.
+- Some stacks publish one cert marked `use="signing encryption"` (a `KeyDescriptor` with no `use` attribute). This is legal but discouraged — you lose the ability to rotate one independently.
+
+</v-clicks>
+
+```xml
+<EntityDescriptor entityID="https://idp.example.com">
+  <IDPSSODescriptor protocolSupportEnumeration="...SAML:2.0:protocol">
+
+    <!-- Cert the SP uses to verify assertion signatures -->
+    <KeyDescriptor use="signing">
+      <KeyInfo><X509Data><X509Certificate>MIID...signing...</X509Certificate></X509Data></KeyInfo>
+    </KeyDescriptor>
+
+    <!-- Cert the SP uses to encrypt assertions for this IDP -->
+    <KeyDescriptor use="encryption">
+      <KeyInfo><X509Data><X509Certificate>MIID...encryption...</X509Certificate></X509Data></KeyInfo>
+    </KeyDescriptor>
+
+    <SingleSignOnService .../>
+  </IDPSSODescriptor>
+</EntityDescriptor>
+```
+
+---
+
+# Generating the keypairs — OpenSSL
+
+Don't let your IDP vendor generate these silently. You want to know what's in your key store. Use a 2048-bit minimum RSA key (or ECDSA P-256/P-384 for modern stacks).
+
+```bash {all|1-3|5-7|9-11|13-16}
+# 1. Generate the signing private key
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
+  -out idp-signing.key -aes256
+# You'll be prompted for a passphrase — store it in your KMS, not in git
+
+# 2. Self-signed signing certificate, valid 2 years
+openssl req -new -x509 -key idp-signing.key -out idp-signing.crt \
+  -days 730 -subj "/CN=idp.example.com SAML Signing" \
+  -addext "keyUsage=digitalSignature,nonRepudiation"
+
+# 3. Generate the encryption private key — SEPARATE keypair
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
+  -out idp-encryption.key -aes256
+
+# 4. Self-signed encryption certificate, valid 2 years
+openssl req -new -x509 -key idp-encryption.key -out idp-encryption.crt \
+  -days 730 -subj "/CN=idp.example.com SAML Encryption" \
+  -addext "keyUsage=keyEncipherment,dataEncipherment"
+```
+
+<v-click>
+
+> ⚠️ The `-addext keyUsage=...` lines matter. Signing keys should not be marked `keyEncipherment`; encryption keys should not be marked `nonRepudiation`. Some SPs (and Java's `XMLSignatureFactory`) actually inspect key usage and reject mismatches.
+
+</v-click>
+
+---
+
+# Configuring both certs in your IDP
+
+The same five settings, applied to **both** keypairs.
+
+<v-clicks>
+
+- 📁 **Key store** — load the `.key` files (or their PKCS#12 bundles) into the IDP's key store. Mark signing vs encryption with a friendly name/alias. Keep them in separate aliases so you can rotate independently.
+- 🪪 **Certificate alias** — both IDs must be stable. Don't reuse "default" if your IDP supports per-app certs.
+- 📜 **Metadata publishing** — emit both `<KeyDescriptor>` blocks with `use="signing"` and `use="encryption"`. Host at a stable URL.
+- 🧷 **Cert chain** — self-signed is fine for federation, but if your IDP's issuer chain matters to auditors, include intermediates in the metadata `<X509Certificate>` block.
+- 🔁 **Rotation policy** — document overlap (typically 2–4 weeks), who owns it, and what triggers emergency rotation (suspected key compromise).
+
+</v-clicks>
+
+---
+
+# Cert rotation — the operation that breaks everything
+
+Cert rotation is the single most common cause of "the IDP was working yesterday and now nothing logs in." Get it right *once* and document it.
+
+<v-clicks>
+
+1. **Generate the new keypair at least 2 weeks before expiry.** Don't wait for the expiry alert — automation may not catch vendor-specific metadata TTLs.
+2. **Publish updated metadata with BOTH old and new signing certs** as `<KeyDescriptor use="signing">` entries. SPs reading the metadata can adopt the new cert at their own pace.
+3. **SP verifies against both certs** during the overlap window. Most modern SAML libraries (onelogin, SAML-Toolkits, pac4j) accept a list of trusted certs.
+4. **Wait for the overlap window to elapse**, then remove the old cert from IDP metadata.
+5. **Never edit metadata by hand** mid-incident — push a fresh full document. SPs cache aggressively and partial updates confuse them.
+6. **Test in a staging IDP first.** Have a parallel metadata URL you can point test SPs at.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4">
+
+> ☠️ The classic disaster: vendor rotates the IDP signing cert, publishes new metadata, but the SP was configured by hard-pasting the old cert 18 months ago and has never re-pulled metadata. Every login fails with "signature validation failed" until someone manually updates the SP.
+
+</div>
+
+</v-click>
 
 ---
 
@@ -286,7 +437,8 @@ Don't leave these at defaults blindly. As of 2026, modern SAML stacks should use
 |---|---|---|
 | Signature | `http://www.w3.org/2001/04/xmldsig-more#rsa-sha256` | `rsa-sha1` (deprecated, broken) |
 | Digest | `http://www.w3.org/2001/04/xmlenc#sha256` | `sha1` |
-| Encryption (optional) | `aes256-gcm` or `aes256-cbc` | `tripledes-cbc` |
+| Key transport (assertion encryption) | `rsa-oaep-mgf1p` (2048+ RSA) | `rsa-1_5` (vulnerable to Bleichenbacher) |
+| Data encryption (assertion payload) | `aes256-gcm` or `aes256-cbc` | `tripledes-cbc` |
 
 <v-click>
 
@@ -736,10 +888,13 @@ SAML done wrong is a single point of total compromise. Hardening is not optional
 - ✅ **Enforce `NotBefore` and `NotOnOrAfter`** — never accept assertions outside the validity window
 - ✅ **Validate `Recipient`** matches your ACS URL exactly
 - ✅ **Enforce HTTPS** on every endpoint — no HTTP fallback
-- ✅ **Encrypt assertions** (`<EncryptedAssertion>`) when transporting sensitive attributes
+- ✅ **Encrypt assertions** (`<EncryptedAssertion>`) when transporting sensitive attributes — and require SPs to publish a stable encryption cert
 - ✅ **Sign metadata** so consumers can detect tampering
-- ✅ **Rotate signing certs** at least yearly, with a documented overlap window
+- ✅ **Rotate signing AND encryption certs** at least yearly, with a documented ≥2-week overlap window in metadata
 - ✅ **Audit log every assertion** — issuer, subject, timestamp, source IP, attributes
+- ✅ **Separate signing and encryption keypairs** — never reuse one keypair for both roles
+- ✅ **Set `keyUsage` correctly** on certs (`digitalSignature,nonRepudiation` for signing; `keyEncipherment` for encryption)
+- ✅ **Store private keys in a KMS or HSM**, never on disk in plaintext
 
 </v-clicks>
 
@@ -812,7 +967,7 @@ layout: center
 <v-clicks>
 
 - 🧠 **SAML is a trust contract.** entityIDs, certificates, and URLs must all agree. Exchange metadata; don't hand-type.
-- 🔐 **Signing is non-negotiable.** Sign responses *and* assertions; use SHA-256; rotate certs yearly.
+- 🔐 **Two keypairs, not one.** Separate signing and encryption keys, separate `KeyDescriptor use=` blocks, separate rotation schedules — compromise of one shouldn't grant both forgery and decryption.
 - 🎯 **Pick the right NameID.** Persistent when possible; email only when forced.
 - 📨 **Attributes drive authz.** Map groups to roles via the attribute statement; consider JIT + SCIM.
 - 🐛 **Test SP-initiated first.** Always use SAML-tracer. Always sync clocks.
