@@ -699,7 +699,7 @@ does not match expected 'https://hr.acme.com'
 **Symptom:** Browser keeps bouncing between IDP login and SP callback.
 
 **Causes:**
-</v-clicks>
+</v-click>
 
 <v-clicks>
 
@@ -719,7 +719,7 @@ does not match expected 'https://hr.acme.com'
 **Symptom:** Login succeeds at IDP, SP creates session, then says "no user" or "missing email".
 
 **Fixes:**
-</v-clicks>
+</v-click>
 
 <v-clicks>
 
@@ -748,7 +748,7 @@ saml:Assertion rejected: NotOnOrAfter '2026-10-04T08:05:00Z' is in the past
 **Cause:** 3-minute clock drift between IDP server and SP server. SAML assertions typically have a 5-minute window. Anything more and they're invalid on receipt.
 
 **Fixes:**
-</v-clicks>
+</v-click>
 
 <v-clicks>
 
