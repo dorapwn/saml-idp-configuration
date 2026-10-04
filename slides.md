@@ -1396,6 +1396,60 @@ This is the operational checklist. Run through it before going to production and
 
 ---
 
+# Misconfiguration risks — what the IDP admin can leave open
+
+Most SAML breaches are not protocol-level exploits. They are **doors the admin opened and forgot to close**. This is the setup-time checklist.
+
+<v-clicks>
+
+- ⚠️ **Wildcarded Allowed ACS URLs.** "Make it work" pattern: admin pastes `https://example.com/*` to accept AuthnRequests. Now any path on the host can consume an assertion. **Fix:** exact-match ACS URLs, one per SP.
+- ⚠️ **Test endpoints left enabled in production.** `/dev/saml/sso`, `/test/idp`, the staging tenant's endpoint — often live by default after a vendor upgrade. **Fix:** disable all non-production endpoints at the IDP, then verify with `curl -X POST` from outside.
+- ⚠️ **Reused signing key across many apps.** One key compromise = every app compromised. **Fix:** separate keypair per app, or at least per trust boundary.
+- ⚠️ **Encryption set to "none" or "optional".** Assertions travel over TLS but are decrypted by every proxy in the path. Sensitive attributes (email, role, group memberships) leak at the TLS-terminating layer. **Fix:** require encryption for SPs handling sensitive attributes.
+- ⚠️ **NameID format leaks PII.** Default to `emailAddress` and the user's email is now in every audit log on every SP. **Fix:** use `persistent` (opaque ID) when SPs support it; reserve `emailAddress` for SPs that need to display the address.
+- ⚠️ **Long assertion validity window.** Default in some IDPs is 60 minutes. **Fix:** 5 minutes for SP-initiated SSO; never more than 30.
+- ⚠️ **Unsigned AuthnRequests accepted by default.** "Optional" is the default in most IDPs. **Fix:** require signed AuthnRequests unless the SP cannot sign.
+- ⚠️ **IDP-initiated SSO without `InResponseTo`.** IDP pushes an assertion to the SP without a prior AuthnRequest. The SP has no way to bind it to a user session. Common CSRF vector. **Fix:** disable IDP-initiated SSO unless you have a specific use case, and even then validate `InResponseTo` where you can.
+- ⚠️ **Self-signed cert with no anchor.** Some IDP vendors generate a self-signed cert but never publish a trust anchor. SPs that "trust everything signed by anyone" become wide open. **Fix:** publish the cert fingerprint explicitly in metadata or to each SP admin out-of-band.
+- ⚠️ **Private key on the application server in dev, copy-pasted into prod.** Audit trail disappears. Key never rotates. **Fix:** KMS or HSM from day one, even in dev.
+- ⚠️ **Logging assertions to stdout / app logs.** Full assertions in logs that get shipped to Splunk, Datadog, or a log aggregator with broader access than the IDP team. PII and role data in places they shouldn't be. **Fix:** log only the assertion ID, issuer, subject, and timestamp — never attributes.
+- ⚠️ **Metadata signing cert mismatch.** IDP admin rotates the signing cert but doesn't rotate the metadata-signing cert, or vice versa. SPs that auto-fetch metadata can't tell the new metadata is genuine. **Fix:** rotate metadata-signing and IDP-signing certs on the same schedule.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4 text-center text-sm">
+
+🚪 **Each of these is a door.** Your security review should walk this list before going live, and again every 6 months. Misconfigurations compound — three small "I'll fix it later" items become a real incident when one of them is the lock that mattered.
+
+</div>
+
+</v-click>
+
+<!--
+This is the slide where the audience goes from "I run the IDP" to "I am the
+IDP's security perimeter." Most SAML breaches I've seen in postmortem are
+not XSW or replay — those get caught by libraries. The breaches are admin-
+level mistakes: wildcard ACS URLs, left-enabled test endpoints, encryption
+turned off because the vendor UI defaulted to optional, private keys in
+/dev mounted into a container that then got pushed to prod. Each item on
+this slide has a real incident behind it. The wildcard ACS one is from a
+financial-services pen test; the test-endpoint one from a SaaS company
+whose preprod IDP was exposed via a forgotten DNS record; the encryption-
+disabled one from a healthcare provider whose assertion attributes ended
+up in a TLS-terminating WAF's access logs; the PII-in-logs one is
+constant, every company I look at has this. The framing is deliberate —
+"doors the admin opened and forgot to close" — because it makes the
+responsibility local. The IDP engineer owns these doors. Not the SP team.
+Not the vendor. You. End on the compounding point. Three small items
+that get ignored become a real incident when one of them is the lock that
+mattered. Audit cadence: 6 months minimum, on every cert change, on every
+vendor upgrade, on every personnel change.
+-->
+
+---
+
 # Common SAML attack vectors
 
 <v-clicks>
