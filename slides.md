@@ -1692,12 +1692,6 @@ layout: end
 
 # Thank you
 
----
-
-# Thanks 🙏
-
-Questions? Let's dig into metadata XML.
-
 <div class="text-sm mt-8 opacity-70">
 
 📚 Resources
@@ -1710,5 +1704,5 @@ Questions? Let's dig into metadata XML.
 </div>
 
 <!--
-Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
+End of deck. Pause for questions; if audience wants metadata XML walkthrough live, open samltool.io and decode an assertion side-by-side.
 -->
