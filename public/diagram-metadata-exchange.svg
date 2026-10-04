@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" font-family="Inter, system-ui, sans-serif">
+  <text x="450" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Metadata Exchange — Day 0 vs Cert Rotation</text>
+
+  <defs>
+    <marker id="seq-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e40af"/>
+    </marker>
+    <marker id="seq-dash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0ea5e9"/>
+    </marker>
+  </defs>
+
+  <!-- Lanes -->
+  <g font-size="13" font-weight="600" fill="#0f172a">
+    <rect x="80"  y="50" width="140" height="40" rx="6" fill="#dbeafe" stroke="#1e40af" stroke-width="1.5"/>
+    <text x="150" y="75" text-anchor="middle">Admin</text>
+
+    <rect x="370" y="50" width="160" height="40" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+    <text x="450" y="75" text-anchor="middle">Identity Provider</text>
+
+    <rect x="680" y="50" width="140" height="40" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+    <text x="750" y="75" text-anchor="middle">Service Provider</text>
+  </g>
+
+  <!-- Lifelines -->
+  <line x1="150" y1="90"  x2="150"  y2="440" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="450" y1="90"  x2="450"  y2="440" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="750" y1="90"  x2="750"  y2="440" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+
+  <!-- Day 0 note -->
+  <rect x="80" y="105" width="740" height="28" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="450" y="124" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">Day 0: Initial setup</text>
+
+  <!-- Admin -> IDP: register -->
+  <line x1="150" y1="150" x2="445" y2="150" stroke="#1e40af" stroke-width="1.5" marker-end="url(#seq-arr)"/>
+  <text x="297" y="143" text-anchor="middle" font-size="11" fill="#1e40af">Register new SP application</text>
+
+  <!-- Admin -> SP: configure -->
+  <line x1="150" y1="180" x2="745" y2="180" stroke="#1e40af" stroke-width="1.5" marker-end="url(#seq-arr)"/>
+  <text x="447" y="173" text-anchor="middle" font-size="11" fill="#1e40af">Configure IDP connection</text>
+
+  <!-- IDP -->> SP: metadata download (dashed return) -->
+  <line x1="450" y1="210" x2="750" y2="210" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#seq-dash)"/>
+  <text x="600" y="203" text-anchor="middle" font-size="11" fill="#0369a1">IDP metadata XML (download)</text>
+
+  <!-- SP -->> IDP: metadata upload -->
+  <line x1="750" y1="240" x2="450" y2="240" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#seq-dash)"/>
+  <text x="600" y="233" text-anchor="middle" font-size="11" fill="#0369a1">SP metadata XML (upload)</text>
+
+  <!-- Note: parse and verify -->
+  <rect x="370" y="258" width="450" height="26" rx="4" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="595" y="276" text-anchor="middle" font-size="11" font-style="italic" fill="#475569">Both sides parse, verify signatures, pin fingerprints</text>
+
+  <!-- Day N note -->
+  <rect x="80" y="300" width="740" height="28" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="450" y="319" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">Day N: Cert rotation (no re-onboarding needed)</text>
+
+  <!-- IDP -> SP: publish new metadata -->
+  <line x1="450" y1="345" x2="750" y2="345" stroke="#1e40af" stroke-width="1.5" marker-end="url(#seq-arr)"/>
+  <text x="600" y="338" text-anchor="middle" font-size="11" fill="#1e40af">Publish new IDP metadata at stable URL</text>
+
+  <!-- SP -> IDP: acknowledge -->
+  <line x1="750" y1="375" x2="450" y2="375" stroke="#1e40af" stroke-width="1.5" marker-end="url(#seq-arr)"/>
+  <text x="600" y="368" text-anchor="middle" font-size="11" fill="#1e40af">Acknowledge (no SP-side change yet)</text>
+
+  <!-- Note: overlap window -->
+  <rect x="370" y="395" width="450" height="26" rx="4" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="595" y="413" text-anchor="middle" font-size="11" font-style="italic" fill="#166534">Overlap window: both certs valid for ≥ 2 weeks</text>
+
+  <!-- Legend -->
+  <g font-size="10" fill="#475569">
+    <line x1="80" y1="450" x2="105" y2="450" stroke="#1e40af" stroke-width="1.5" marker-end="url(#seq-arr)"/>
+    <text x="112" y="453">request</text>
+    <line x1="170" y1="450" x2="195" y2="450" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#seq-dash)"/>
+    <text x="202" y="453">response / upload</text>
+    <rect x="320" y="445" width="12" height="10" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="338" y="453">phase marker</text>
+  </g>
+</svg>

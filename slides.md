@@ -101,13 +101,7 @@ The **user never gets a password** at the SP. The SP just trusts whatever the ID
 
 <div class="mt-6">
 
-```
-┌────────┐  ① AuthnRequest   ┌──────┐   ② Assertion   ┌─────┐
-│   SP   │ ─────────────────▶ │ IDP  │ ─────────────▶  │User │
-│        │ ◀───────────────── │      │ ◀─────────────  │     │
-└────────┘   ③ Redirect w/    └──────┘   ④ SAML Resp  └─────┘
-              SAMLResponse
-```
+<img src="/diagram-saml-flow.svg" alt="SP-Initiated SSO numbered message flow" style="width:100%;max-width:720px;display:block;margin:0 auto"/>
 
 </div>
 
@@ -340,24 +334,7 @@ For SP-initiated SSO to work, the **IDP and SP must agree** on:
 
 # Metadata exchange — the right way
 
-```mermaid {scale: 0.7}
-sequenceDiagram
-    participant SP as Service Provider
-    participant IDP as Identity Provider
-    participant Admin
-
-    Note over Admin: Day 0: Initial setup
-    Admin->>IDP: Register new SP application
-    Admin->>SP: Configure IDP connection
-    IDP-->>SP: IDP metadata XML (download)
-    SP-->>IDP: SP metadata XML (upload)
-    Note over SP,IDP: Both parse and verify
-
-    Note over Admin: Day N: Cert rotation
-    IDP->>SP: Publish new IDP metadata
-    SP->>IDP: Acknowledge (no SP change)
-    Note over SP,IDP: Overlap window: both certs valid
-```
+<img src="/diagram-metadata-exchange.svg" alt="Metadata exchange sequence diagram" style="width:100%;max-width:900px;display:block;margin:0 auto"/>
 
 <v-click>
 
@@ -403,24 +380,7 @@ layoutClass: gap-6
 
 <div class="text-center mt-12">
 
-```
- ┌──────────────────────────┐
- │   IDP Admin Console      │
- │  ┌────────────────────┐  │
- │  │ + New App          │  │
- │  │   SAML 2.0         │  │
- │  │ ┌────────────────┐ │  │
- │  │ │ ACS URL        │ │  │
- │  │ │ EntityID       │ │  │
- │  │ │ NameID         │ │  │
- │  │ │ Attrs...       │ │  │
- │  │ └────────────────┘ │  │
- │  └────────────────────┘  │
- │  ┌────────────────────┐  │
- │  │  ▣ users assigned  │  │
- │  └────────────────────┘  │
- └──────────────────────────┘
-```
+<img src="/diagram-admin-console.svg" alt="IDP admin console new SAML app" style="width:100%;max-width:520px;display:block;margin:0 auto"/>
 
 </div>
 
@@ -585,25 +545,7 @@ The IDP passes user data; the SP decides what to do with it.
 
 <v-clicks>
 
-```
-                Which NameID format?
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-    Email-based    Persistent     Transient
-        │              │              │
-   User's email    Opaque ID     Request-scoped
-   is the IDP ID   hashed from   unique per
-        │          user GUID     assertion
-        ▼              ▼              ▼
-   ⚠️ Breaks if    ✅ Survives    ❌ SP can't
-   user changes    email/name    identify user
-   email           changes       across sessions
-        │              │
-        ▼              ▼
-    OK for low-    Use this for
-    stakes apps    production
-```
+<img src="/diagram-nameid-decision.svg" alt="NameID format decision tree" style="width:100%;max-width:900px;display:block;margin:0 auto"/>
 
 </v-clicks>
 
@@ -859,36 +801,7 @@ SAML isn't the end of the story — it's the foundation.
 
 # The hybrid identity stack
 
-```mermaid {scale: 0.65}
-flowchart TB
-    subgraph Users
-        U[👤 End User]
-    end
-
-    subgraph IDP["Identity Provider"]
-        SAML[SAML 2.0 Endpoint]
-        OIDC[OIDC / OAuth2]
-        SCIM[SCIM 2.0]
-        MFA[🔐 MFA / WebAuthn]
-    end
-
-    subgraph SPs["Service Providers"]
-        SP1[Legacy ERP<br/>SAML]
-        SP2[Modern SaaS<br/>SAML]
-        SP3[Mobile App<br/>OIDC]
-        SP4[Internal API<br/>OIDC + JWT]
-    end
-
-    U -->|Login| IDP
-    IDP -->|Assertion| SP1
-    IDP -->|Assertion| SP2
-    IDP -->|ID Token| SP3
-    IDP -->|Access Token| SP4
-    IDP -->|User/Group CRUD| SCIM
-    SCIM -.->|Provision| SP1
-    SCIM -.->|Provision| SP2
-    MFA -.-> IDP
-```
+<img src="/diagram-hybrid-stack.svg" alt="Hybrid identity stack diagram" style="width:100%;max-width:980px;display:block;margin:0 auto"/>
 
 ---
 layout: center

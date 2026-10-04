@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" font-family="Inter, system-ui, sans-serif">
+  <text x="450" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">NameID Strategy — Decision Tree</text>
+
+  <defs>
+    <marker id="nd-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- Root -->
+  <g>
+    <rect x="340" y="40" width="220" height="44" rx="22" fill="#1e40af" stroke="#1e40af" stroke-width="2"/>
+    <text x="450" y="67" text-anchor="middle" font-size="14" font-weight="600" fill="#ffffff">Which NameID format?</text>
+  </g>
+
+  <!-- Branch arms (lines from root to three children) -->
+  <line x1="450" y1="84" x2="150" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#nd-arr)"/>
+  <line x1="450" y1="84" x2="450" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#nd-arr)"/>
+  <line x1="450" y1="84" x2="750" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#nd-arr)"/>
+
+  <!-- Email-based (warn) -->
+  <g>
+    <rect x="40" y="130" width="220" height="40" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <text x="150" y="155" text-anchor="middle" font-size="13" font-weight="600" fill="#78350f">Email-based</text>
+  </g>
+  <rect x="40" y="180" width="220" height="40" rx="6" fill="#fffbeb" stroke="#fbbf24"/>
+  <text x="150" y="205" text-anchor="middle" font-size="11" fill="#78350f">User's email is the IDP ID</text>
+
+  <rect x="40" y="232" width="220" height="40" rx="6" fill="#fee2e2" stroke="#ef4444"/>
+  <text x="150" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#991b1b">⚠ Breaks if email changes</text>
+
+  <rect x="40" y="284" width="220" height="40" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="150" y="309" text-anchor="middle" font-size="11" fill="#78350f">OK for low-stakes apps</text>
+
+  <!-- Persistent (good) -->
+  <g>
+    <rect x="340" y="130" width="220" height="40" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="450" y="155" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">Persistent</text>
+  </g>
+  <rect x="340" y="180" width="220" height="40" rx="6" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="450" y="205" text-anchor="middle" font-size="11" fill="#166534">Opaque, hashed from user GUID</text>
+
+  <rect x="340" y="232" width="220" height="40" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="450" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#166534">✅ Survives email/name changes</text>
+
+  <rect x="340" y="284" width="220" height="40" rx="6" fill="#bbf7d0" stroke="#16a34a"/>
+  <text x="450" y="309" text-anchor="middle" font-size="11" font-weight="600" fill="#14532d">Use this for production ✓</text>
+
+  <!-- Transient (avoid) -->
+  <g>
+    <rect x="640" y="130" width="220" height="40" rx="6" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+    <text x="750" y="155" text-anchor="middle" font-size="13" font-weight="600" fill="#991b1b">Transient</text>
+  </g>
+  <rect x="640" y="180" width="220" height="40" rx="6" fill="#fef2f2" stroke="#f87171"/>
+  <text x="750" y="205" text-anchor="middle" font-size="11" fill="#7f1d1d">Request-scoped, unique per assertion</text>
+
+  <rect x="640" y="232" width="220" height="40" rx="6" fill="#fee2e2" stroke="#ef4444"/>
+  <text x="750" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#991b1b">❌ SP can't identify user across sessions</text>
+
+  <rect x="640" y="284" width="220" height="40" rx="6" fill="#fee2e2" stroke="#ef4444"/>
+  <text x="750" y="309" text-anchor="middle" font-size="11" fill="#991b1b">Avoid unless truly anonymous</text>
+
+  <!-- Footer recommendation -->
+  <rect x="60" y="340" width="780" height="32" rx="6" fill="#1e40af"/>
+  <text x="450" y="361" text-anchor="middle" font-size="13" font-weight="600" fill="#ffffff">Recommendation: start with persistent · fall back to email only if SP can't · never transient for user accounts</text>
+</svg>
