@@ -97,12 +97,11 @@ Advance through this slide; key points will reveal as you click. Take questions 
 6. 📨 Attribute mapping & NameID strategies
 7. 🐛 Real-world troubleshooting
 8. 🛡️ Security hardening checklist
-9. 🚀 Beyond SAML — when to graduate to OIDC
 
 </v-clicks>
 
 <!--
-Walking through the agenda — 9 chapters, the deck goes deep on the trust foundation and the IDP setup walkthroughs because those are where the real time goes. I'll skip the troubleshooting chapter's details live and refer people to it during Q&A.
+Walking through the agenda — 8 chapters, the deck goes deep on the trust foundation and the IDP setup walkthroughs because those are where the real time goes. I'll skip the troubleshooting chapter's details live and refer people to it during Q&A.
 -->
 
 ---
@@ -1476,67 +1475,6 @@ layout: section
 Chapter divider — pause here, take a breath, advance when ready.
 -->
 
----
-
-# 9 · 🚀 Beyond SAML
-
-SAML isn't the end of the story — it's the foundation.
-
-<!--
-Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
--->
-
----
-
-# When to stay with SAML
-
-<v-clicks>
-
-- 🏛️ **Enterprise B2B SaaS** — customers expect SAML; OIDC isn't enough
-- 🏛️ **Government / regulated** — eIDAS, FedRAMP, many frameworks mandate SAML
-- 🏛️ **Legacy SPs** — that vendor still on Java 8 with Shibboleth 2.x
-- 🏛️ **Attribute-heavy authz** — SAML's `<AttributeStatement>` is more expressive than OIDC's claims for complex group/role maps
-
-</v-clicks>
-
-<!--
-SAML is staying in enterprise B2B and regulated environments for the foreseeable future. If you're selling to large enterprises, government, or healthcare, you must support SAML.
--->
-
----
-
-# When to add OIDC alongside
-
-<v-clicks>
-
-- 🚀 **Modern web/mobile apps** — OIDC's JSON+JWT is simpler than XML+base64
-- 🚀 **API-first services** — JWT bearer tokens work natively with HTTP APIs
-- 🚀 **Mobile deep linking** — OIDC's `redirect_uri` flows handle native app schemes better
-- 🚀 **Microservices** — JWTs propagate identity between services without a SAML XML parse at every hop
-
-</v-clicks>
-
-<v-click>
-
-**Most enterprises end up running both.** SAML for legacy/enterprise federation, OIDC for modern apps. The IDP (Okta, Entra ID, Auth0, Keycloak) presents SAML to the old world and OIDC to the new.
-
-</v-click>
-
-<!--
-OIDC wins for modern apps, mobile, APIs. Most enterprises end up running both. The IDP presents SAML to the old world and OIDC to the new — the user-facing experience is identical.
--->
-
----
-
-# The hybrid identity stack
-
-<img src="/diagram-hybrid-stack.svg" alt="Hybrid identity stack diagram" style="width:100%;max-width:980px;display:block;margin:0 auto"/>
-
-<!--
-This is the architecture you'll see in mature enterprise environments. One IDP, multiple protocols — SAML for the legacy and the regulated, OIDC for the modern, SCIM for lifecycle. The user experience is uniform even though the wire protocols differ. The investment in this kind of platform pays off as the application portfolio grows.
--->
-
----
 
 layout: center
 

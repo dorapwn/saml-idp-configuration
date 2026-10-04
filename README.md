@@ -26,7 +26,6 @@ npm run export       # exports PDF (requires playwright-chromium)
 7. Attribute mapping & NameID strategies
 8. Troubleshooting the 5 most common errors
 9. Security hardening checklist
-10. When to keep SAML, when to add OIDC
 
 ## Deployment
 
