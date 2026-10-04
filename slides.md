@@ -373,6 +373,70 @@ share a hostname, and that's fine, but they answer different questions.
 
 ---
 
+# How SPs and brokers actually validate the Issuer
+
+The Issuer check is **string equality against an explicit allowlist**. Not hostname matching, not pattern matching, not "is this from a trusted DNS zone." A literal byte-for-byte comparison against a list of known IDP entityIDs.
+
+<v-clicks>
+
+- 🎯 **Algorithm: `assertion.Issuer ∈ trustedIssuers?`** — for every incoming assertion, the SP (or IDP broker) parses the `<saml:Issuer>` element and checks whether that exact string appears in its config. If yes → proceed. If no → reject with "unknown issuer" / "untrusted IdP" / similar.
+- 📜 **The trusted list comes from configuration**, not from observation. SPs don't auto-discover IDPs. An admin must explicitly add the IDP's entityID to the SP's trust store (typically via metadata upload or out-of-band URL).
+- 🔗 **For a chained IDP (broker / hub)** — same rule, applied recursively:
+  - The SP at the edge trusts the broker's Issuer.
+  - The broker trusts each upstream IDP's Issuer.
+  - An assertion from an unknown upstream IDP is rejected by the broker *before* it ever produces an assertion for the SP.
+- 🚫 **What the validator does NOT do:**
+  - It doesn't check that the Issuer hostname resolves in DNS.
+  - It doesn't check that the Issuer hostname matches the SSO URL hostname.
+  - It doesn't fetch the Issuer URL and verify the response.
+  - It doesn't infer trust from the signing cert (a cert signed by a known CA is *not* enough).
+- ⚠️ **Common false assumptions**:
+  - "Our IDP is at `https://sso.acme.com`, so any assertion with that hostname is trusted." — Wrong. Only the literal configured entityID is trusted.
+  - "If the signature verifies, the Issuer must be right." — Wrong. Signature validates the *contents*; Issuer validates the *provenance*. Two separate checks.
+  - "Per-tenant Issuer strings are fine." — Right, but each one must be explicitly added to the trusted list. A single shared cert doesn't help a multinational.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4 text-center text-sm opacity-70">
+
+Pseudocode of the actual check, in any SAML library:
+</div>
+
+```python
+def validate(assertion):
+    if assertion.issuer not in self.trusted_issuers:  # exact string match
+        raise UntrustedIdPError(assertion.issuer)
+    if not verify_signature(assertion, lookup_cert(assertion.issuer)):
+        raise SignatureError()
+    return assertion
+```
+
+</v-click>
+
+<!--
+This is the slide where the mental model locks in for an IDP admin audience.
+The whole question was: "does the Issuer get validated by hostname?" — and
+the answer is no, never. SAML's trust model is purely declarative: an admin
+curates a list of trusted entityIDs, and the library does string equality.
+Three implications worth saying out loud. First: hostname doesn't matter for
+trust. If your IDP is at idp.acme.com and an attacker can mint assertions
+with Issuer 'https://idp.acme.com' (because they control that domain), the
+SP will trust them — that's why DNS and TLS matter as the *transport*
+security layer, separate from SAML trust. Second: signature validity does
+not imply Issuer trust. They're orthogonal. The signature proves the
+assertion wasn't tampered with; the Issuer check proves it came from
+someone you trust. Both required. Third: in chained IDP / hub-and-spoke
+federation, the same rule applies at each layer. The SP trusts the hub's
+Issuer. The hub trusts the upstream IDP's Issuer. An attacker can't sneak
+in by going through a different path — the entityID string must match at
+every trust boundary.
+-->
+
+
+---
+
 layout: section
 
 
