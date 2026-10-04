@@ -4,6 +4,8 @@ A presentation-as-code Slidev deck covering SAML 2.0 IDP configuration from foun
 
 🌐 **Live slides**: https://dorapwn.github.io/saml-idp-configuration/
 
+✅ GitHub Pages is live and auto-deploys on every push to `main`. Collaborator `neoalienson` has write access.
+
 ## Run locally
 
 ```bash
