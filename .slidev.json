@@ -1,4 +1,5 @@
 {
+  "base": "/saml-idp-configuration/",
   "lastModified": "2026-10-04T08:00:00.000Z",
   "themeConfig": {
     "primary": "#1e40af",
