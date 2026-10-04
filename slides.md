@@ -42,9 +42,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: two-cols
-
+---
 
 # Visualizing the trust triangle
 <!--
@@ -74,9 +73,8 @@ Quick framing: SAML 2.0 is from 2005 and we're still using it because enterprise
 -->
 
 ---
-
 layout: center
-
+---
 
 # Three concepts in 30 seconds
 <!--
@@ -105,9 +103,8 @@ Walking through the agenda — 8 chapters, the deck goes deep on the trust found
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 1 · What SAML actually is
 <!--
@@ -125,11 +122,11 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: two-cols
+layoutClass: gap-8
+---
 
 # Mental model — the parties
-layoutClass: gap-8
 
 <!--
 Advance through this slide; key points will reveal as you click. Take questions if anything's unclear.
@@ -160,9 +157,8 @@ The mental model: three actors — IDP, SP, and the user. The user authenticates
 -->
 
 ---
-
 layout: center
-
+---
 
 # In one picture
 <!--
@@ -435,9 +431,8 @@ every trust boundary.
 
 
 ---
-
 layout: section
-
+---
 
 # Concept 2 · Assertions
 <!--
@@ -556,9 +551,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 3 · Bindings
 <!--
@@ -810,9 +804,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 5 · Authentication flows
 <!--
@@ -878,9 +871,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 6 · Single logout
 <!--
@@ -1063,9 +1055,8 @@ Keycloak is the open-source option and the most flexible. The clientId becomes t
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 7 · Configuration handshake
 <!--
@@ -1166,9 +1157,8 @@ JIT is great for reducing onboarding friction but creates a lifecycle problem �
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 8 · Attribute mapping
 <!--
@@ -1336,9 +1326,8 @@ These are the tools you'll actually reach for. SAML-tracer is the single most va
 -->
 
 ---
-
 layout: section
-
+---
 
 # Concept 9 · Common failure modes
 <!--
@@ -1648,18 +1637,17 @@ mocks the AuthnRequest and watch what the IDP does with a malicious ACS.
 -->
 
 ---
-
 layout: section
-
+---
 
 # Production readiness
 <!--
 Chapter divider — pause here, take a breath, advance when ready.
 -->
 
-
+---
 layout: center
-
+---
 
 # Recipe for any IDP
 <!--
@@ -1687,8 +1675,8 @@ Advance through this slide; key points will reveal as you click. Take questions 
 -->
 
 ---
-
 layout: end
+---
 
 # Thank you
 
