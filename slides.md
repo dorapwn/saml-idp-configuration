@@ -1451,189 +1451,218 @@ five detail slides.
 -->
 
 ---
+layout: two-cols
+layoutClass: gap-8
+---
 
 # Attack 1 · XML Signature Wrapping (XSW)
 
 The signature on the wire validates. The SP authenticates a user. But the user the SP authenticates is **not** the user the IDP signed.
 
-<v-clicks>
+::right::
 
-- 🧬 **Mechanism.** The attacker wraps the legitimate `<saml:Assertion>` inside an `<Object>` / `<Extensions>` element inside the `<Response>`, then prepends a *malicious* `<saml:Assertion>` (with their own Subject/AttributeStatement) at the top of `<Response>`. The IDP signature still covers the original assertion; the SP's XML parser picks the first / selected assertion to process. Same digest, different payload.
-- 🔬 **Historical CVE.** CVE-2018-19376 (Onelogin), CVE-2017-11427 (SAML Kit), CVE-2020-5391 (OpenAM), and many more. The pattern is the same: SP reads a different assertion than the one the signature covers.
-- 🧪 **How it looks on screen.** A `<saml:Response>` containing two `<saml:Assertion>` children — one legitimate (signed), one malicious (unsigned, with the attacker's chosen attributes). The SP signs-out the signed assertion's validity but trusts the malicious one's *content*.
-- 🛠 **Mitigations.**
-  - Use a SAML library that does **signed-assertion-only** parsing (SAML-tracer + your library's source confirms it).
-  - Reject any `<Response>` containing more than one assertion.
-  - Match the assertion's ID to the `<ds:Reference>` URI — don't trust parser order.
-- 🧪 **Test.** Pull the assertion in a SAML-tracer-style proxy, append a second assertion, replay to your SP. If the SP logs in the attacker user, your library is vulnerable.
+## 🛡 At the IDP (your configuration)
 
-</v-clicks>
+- **Always sign the `<Assertion>` itself**, not just the wrapping `<Response>`. Both is best.
+- **Publish `WantAssertionsSigned="true"`** in metadata for every SP you publish.
+- **Use SHA-256** (`http://www.w3.org/2001/04/xmldsig-more#rsa-sha256`) for the signing algorithm. SHA-1 has no defense value against XSW.
+- **Reject `<Response>` with more than one `<Assertion>`** child at the IDP level before signing — if you can't, ensure you sign only the inner assertion (not the wrapper), so any sibling assertion is unsigned by you.
+- **Audit sign-event logs**: every assertion your IDP signs should appear in a log line that captures the assertion ID. If a log entry shows two `<Assertion>` elements under one sign event, you have a bug upstream.
 
-<v-click>
+## 🛡 At the SP (audit ask, not your config)
 
-```xml
-<!-- Original signed -->
-<Response>
-  <Assertion ID="a1">  {/* signed, legitimate user */} </Assertion>
-</Response>
+- Library must do **signed-assertion-only** parsing — match by `<ds:Reference>` URI, not parser order.
+- Library must **reject `<Response>` with multiple `<Assertion>` children**.
+- Audit the SP library version against published CVEs (OneLogin ruby-saml ≤ 1.10.x, OpenAM, OpenSAML 2.x).
 
-<!-- XSW-injected -->
-<Response>
-  <Assertion ID="evil"> {/* attacker chose this; unsigned */} </Assertion>
-  <Extensions><Assertion ID="a1"> {/* signed, hidden */} </Assertion></Extensions>
-</Response>
-```
+## 🧪 Test
 
-</v-click>
+Capture a valid signed assertion in SAML-tracer. Append a second `<Assertion>` to the `<Response>` (your evil one with attacker-chosen attributes). Replay to your SP. If the SP logs in the attacker user, the SP library is vulnerable — and your published metadata needs `WantAssertionsSigned="true"` *plus* the SP team needs to upgrade.
 
 <!--
-XSW is the one that technical history says kept coming back. The signature
-validates because the bytes covered are the same. The SP sees a different
-assertion because the XML structure lets the attacker choose. Modern libraries
-handle this; old ones don't. Three things to say out loud: the signature is
-technically valid (so any signature-only check passes); the SP reads the
-wrong payload (so any signature-only check is insufficient); the fix is
-specific to the library's parser. CVE-2018-19376 was a famous one because
-Onelogin's Ruby library was the canonical example — the entire industry
-rewrote their parsers after that. Mention SAML-tracer as the demo tool:
-replay the wire, append a second one, see what your SP does. If it logs in
-the wrong user, you have a bug.
+XSW is the protocol-level walk-up that goes: "the signature is technically valid
+(because the bytes covered are the same), but the SP reads the wrong payload
+(because XML structure lets the attacker choose)." Modern libraries fix this;
+old ones don't. CVE-2018-19376 (OneLogin ruby-saml) was the canonical example
+that rewrote parsers across the industry. From the IDP admin's seat: you can't
+prevent the SP from being vulnerable, but you CAN push the requirement onto
+them via metadata flags and audit logs. Mention SAML-tracer as the demo tool:
+replay the wire, append a second one, see what the SP does. If it logs in the
+wrong user, file a ticket with the SP vendor AND add the SP to your quarterly
+audit list.
 -->
 
+---
+layout: two-cols
+layoutClass: gap-8
 ---
 
 # Attack 2 · Signature stripping
 
 The simplest of the five: take the signed assertion, remove the signature, send it unsigned. The SP — if it accepts unsigned assertions — authenticates the user with no integrity check.
 
-<v-clicks>
+::right::
 
-- 🧬 **Mechanism.** Drop the entire `<ds:Signature>` element. The assertion XML still parses. If the SP doesn't enforce signature-required, the assertion is accepted as-is.
-- 🧪 **Concrete.**
-  ```http
-  POST /saml/acs HTTP/1.1
-  Content-Type: application/x-www-form-urlencoded
+## 🛡 At the IDP (your configuration)
 
-  SAMLResponse=<saml:Assertion>...WITHOUT ANY <ds:Signature>...</saml:Assertion>
-  ```
-- 🔬 **Common in legacy SPs.** Shibboleth 2.x with permissive default config, custom .NET SPs that hand-rolled validation, anything still on Java 8 with OpenSAML 3.x without explicit `setSignatureRequired(true)`.
-- 🛠 **Mitigations.**
-  - At the IDP side: always sign assertions and the wrapping response. Set `WantAssertionsSigned="true"` in metadata for every SP you publish.
-  - At the SP side: require signed assertions in code — never default to optional. Library default = signature-incompatible should be the *deny* path, not the *allow* path.
-  - Test: capture a valid signed assertion, strip the `<ds:Signature>`, replay. SP must reject.
-- 🔥 **Why it's the gateway to XSW.** A signature-stripped assertion is easier to mutate (XSW replaces one assertion with another). Modern libraries fix both because the same code path validates signature presence *and* matches the signed bytes to the parsed content.
+- **Always sign the `<Assertion>` element** (not just the wrapping `<Response>`). Set this in your IDP's signing config — most vendors have a "sign assertions" toggle; turn it on.
+- **Publish `WantAssertionsSigned="true"`** in metadata for every SP. The SP's library reads this flag and refuses unsigned assertions.
+- **Configure algorithm strength at signing time** — SHA-256 minimum, RSA-2048 minimum key. Vendors default to SHA-1 for "compatibility" — opt out.
+- **Sign the response itself** even when assertions are signed. Belt-and-braces: if a misconfigured SP reads only the response signature, you're still covered.
+- **Set metadata freshness** — re-publish metadata after every cert change so the SP knows your signing key hasn't quietly changed.
 
-</v-clicks>
+## 🛡 At the SP (audit ask, not your config)
+
+- Library must default to **reject-on-missing-signature**, not allow-on-missing-signature. Audit call: ask the SP team whether their library's default is "permissive" or "strict."
+- Library should use `setSignatureRequired(true)` (OpenSAML) or equivalent — explicit code, not config flag.
+- Modern SP libraries (post-2018) handle this automatically; older ones don't.
+
+## 🧪 Test
+
+Capture a real signed assertion. Strip the entire `<ds:Signature>` element. Replay to your SP. If the SP logs in the user, the SP library is broken.
+
+## 🔥 Why it's the gateway to XSW
+
+A signature-stripped assertion is easier to mutate. XSW replaces one assertion with another. Modern libraries fix both because the same code path validates signature presence **and** matches the signed bytes to the parsed content. If your SP is XSW-safe, it's almost certainly signature-stripping-safe.
 
 <!--
 Signature stripping is the protocol-level walk-up to XSW. If the SP accepts
 unsigned assertions, an attacker doesn't even need to forge one — they can
-just take a real one, drop the signature, and send it. The mitigation is
-boring but mandatory: require signed, set metadata flags explicitly, never let
-the default be 'best effort'. Test method: capture a real signed assertion,
-strip the signature element, replay. Any SP that logs you in is broken.
+just take a real one, drop the signature, and send it. From the IDP admin's
+seat: your config lever is `WantAssertionsSigned="true"` in published metadata
+plus signing at the IDP. The SP team needs to fix their default-on-missing
+behavior. Test method: capture a real signed assertion, strip the signature
+element, replay. Any SP that logs you in is broken.
 -->
 
+---
+layout: two-cols
+layoutClass: gap-8
 ---
 
 # Attack 3 · Replay attacks
 
 Capture a valid assertion. Replay it. If the SP doesn't track one-time use or bind it to a session, the attacker becomes the user.
 
-<v-clicks>
+::right::
 
-- 🧬 **Mechanism.** A signed assertion has a `<Conditions NotBefore="..." NotOnOrAfter="...">` window — typically 2–5 minutes. An attacker who captures the assertion during that window can submit it to the ACS as many times as they want. Without one-time-use tracking, every replay authenticates the same user.
-- 🔬 **Two flavors.**
-  - **Direct replay** — attacker re-POSTs the captured SAMLResponse to the SP's ACS. Defeated by short validity + one-time-use cache.
-  - **Cross-service replay** — attacker replays the same assertion to a *different* SP (one that accepts the same IDP). Defeated by `<AudienceRestriction>` strict match.
-- 🛠 **Mitigations.**
-  - Set `NotOnOrAfter` to ≤ 5 minutes for SP-initiated SSO; ≤ 30 minutes for IDP-initiated. The shorter, the smaller the replay window.
-  - Validate `<AudienceRestriction>` strictly — reject any assertion where the SP's entityID isn't in the audience list.
-  - Track assertion IDs in a one-time-use cache at the SP. Same `<saml:Assertion ID="...">` twice → reject.
-  - Validate `<InResponseTo>` on the SP — the AuthnRequest ID should match the assertion's `InResponseTo`. Otherwise, drop.
-- 🧪 **Test.** Generate an assertion, save the bytes, immediately re-POST them. Then wait 6 minutes and re-POST. Both must be rejected.
+## 🛡 At the IDP (your configuration)
 
-</v-clicks>
+- **Set assertion validity (`NotBefore` → `NotOnOrAfter`) to ≤ 5 minutes** for SP-initiated SSO. ≤ 30 minutes for IDP-initiated. Most IDP admin consoles have a "session lifetime" or "assertion validity window" setting — find it.
+- **Always emit `<AudienceRestriction>` with the SP's exact entityID** as the sole `<Audience>` value. Per SP, not per IDP.
+- **Always emit a unique `<saml:Assertion ID="...">`** (UUID or similar). Never reuse an assertion ID across SPs or across sessions.
+- **For SP-initiated SSO, bind assertions via `<Subject><NameID>` + `<AuthnStatement>`'s `InResponseTo` to the original `<AuthnRequest>` ID.** This is automatic in most IDPs; verify it's enabled for every SP.
+- **Disable IDP-initiated SSO unless explicitly needed.** IDP-initiated means the IDP creates an assertion with no prior AuthnRequest — there's nothing to bind it to. Every IDP-initiated SSO is a potential replay vector.
+- **Short-lived are best**: the shorter the validity window, the smaller the attack window. Default 60 minutes is too long.
+
+## 🛡 At the SP (audit ask, not your config)
+
+- Library must track **one-time-use** for `<saml:Assertion ID="...">` and reject duplicates.
+- Library must validate `<AudienceRestriction>` strictly — reject any assertion where the SP's entityID isn't in the audience list.
+- Library must validate `<InResponseTo>` — the AuthnRequest ID should match the assertion's. Otherwise, drop.
+
+## 🧪 Test
+
+Generate an assertion, save the bytes, immediately re-POST them. Then wait 6 minutes and re-POST. Both must be rejected. Then capture a valid assertion for SP-A and POST it to SP-B (different SP, same IDP). SP-B must reject because of `<AudienceRestriction>`.
 
 <!--
 Replay is the eternal SAML vulnerability because the protocol's whole
 contract is "this assertion is valid for N minutes." That window is the
-attack window. Three layers of defense: short validity (the protocol
-itself); audience match (cross-service is the most common leak); one-time
-use (the SP tracks what it's already seen). The audience one is
-especially important for federation — your assertion should not work
-against your bank. SAML-tracer doesn't catch this; you need to actually
-replay against the SP and watch what it does.
+attack window. From the IDP admin's seat: the lever you control is
+NotOnOrAfter (most IDPs expose this as "session lifetime") and the
+AudienceRestriction you emit per SP. Cross-service replay is the most
+common leak — the same IDP serves 40 SPs but they all accept the same
+assertion unless the IDP emits a per-SP audience. Audit call: ask the
+SP team whether their library does one-time-use tracking and audience
+matching. SAML-tracer doesn't catch this; you need to actually replay
+against the SP and watch what it does.
 -->
 
+---
+layout: two-cols
+layoutClass: gap-8
 ---
 
 # Attack 4 · RelayState open redirect & XSS
 
 RelayState is supposed to be opaque. It's not — most SP libraries reflect it back into the user's browser. That's a redirect primitive.
 
-<v-clicks>
+::right::
 
-- 🧬 **Mechanism.** RelayState is a free-form string passed through the IDP on every redirect. After the IDP redirects to the SP with the SAMLResponse, the SP redirects the browser to RelayState. If RelayState isn't validated, the attacker controls where the browser goes next.
-- 🔬 **Two flavors.**
-  - **Open redirect** — RelayState = `https://evil.com`. SP redirects post-auth to evil.com. Phishing-ready, no XSS needed. Just a clean redirect.
-  - **XSS** — RelayState = `javascript:alert(1)` or contains HTML that the SP reflects into a page. In modern libraries this is rare but old libraries do reflect RelayState into HTML.
-- 🧪 **Concrete.**
-  ```http
-  POST /saml/sso HTTP/1.1
-  SAMLRequest=...&RelayState=https://attacker.example.com/phish
-  ```
-  User completes login, browser ends up on `attacker.example.com/phish?session=...`.
-- 🛠 **Mitigations.**
-  - Validate RelayState against an **allowlist of relative paths** (`/dashboard`, `/home`) or absolute URLs that match the SP's own host.
-  - Reject any RelayState that doesn't match the pattern. 4xx with a clear log entry.
-  - Never reflect RelayState into HTML. Treat it as a redirect target, not as content.
-- 🧪 **Test.** Initiate SSO with `RelayState=https://example.com` and `RelayState=javascript:alert(1)`. SP must reject both.
+## 🛡 At the IDP (your configuration)
 
-</v-clicks>
+**RelayState is almost entirely an SP-side problem.** The IDP's only role is to pass the value through unchanged. What you can do:
+
+- **Treat RelayState as opaque** — pass through verbatim, do not interpret, parse, validate, or modify it.
+- **Cap RelayState size** at the IDP level. A 50 KB RelayState is suspicious. Most IDPs have an "input size limit" or per-parameter cap.
+- **Audit your IDP's RelayState handling**: if your IDP ever logs RelayState into HTML pages (e.g., error pages, debug pages), file a bug.
+- **Disable RelayState entirely** if your SPs don't use it. Many setups don't need it.
+
+## 🛡 At the SP (the real defense)
+
+- **Allowlist validation** — accept only relative paths (`/dashboard`, `/home`) or absolute URLs whose host matches the SP's own host.
+- **Reject** any RelayState that doesn't match. 4xx with a clear log entry.
+- **Never reflect RelayState into HTML**. Treat as redirect target, not content.
+- **Block `javascript:` and `data:` schemes** explicitly.
+- Audit the SP library — older ones (pre-2019) had this bug.
+
+## 🧪 Test
+
+Initiate SSO with `RelayState=https://attacker.example.com/phish` and `RelayState=javascript:alert(1)`. SP must reject both. From the IDP side: capture the request, see what your IDP emitted (RelayState should be unchanged) — if the IDP modified or rejected RelayState before passing it to the SP, that's a code smell.
 
 <!--
 RelayState is the protocol's design wart — it's a free-form string with no
 semantics, intended for the SP's own use (deep-link, return-to URL), but the
 spec doesn't say 'validate it'. Most SPs that don't validate it end up with a
-straightforward open redirect. From the attacker's perspective this is the
-cheapest SAML bug: one parameter, no signature needed. The mitigation is
-boring: allowlist. Relative paths only, or absolute URLs that match the
-SP's host. The javascript: scheme test is the canary for older libraries.
+straightforward open redirect. From the IDP admin's seat: the IDP can't
+prevent the SP bug. The IDP CAN: pass RelayState through unchanged, cap its
+size, audit for HTML-reflection bugs. The SP team needs to fix their parser.
+From the attacker's perspective this is the cheapest SAML bug: one parameter,
+no signature needed. The mitigation is boring: allowlist. Relative paths only,
+or absolute URLs that match the SP's host. The javascript: scheme test is the
+canary for older libraries.
 -->
 
+---
+layout: two-cols
+layoutClass: gap-8
 ---
 
 # Attack 5 · SSRF via `<AssertionConsumerServiceURL>`
 
 The IDP-initiated variant of a classic SSRF. The attacker tricks the IDP into sending a valid assertion to a URL they control.
 
-<v-clicks>
+::right::
 
-- 🧬 **Mechanism.** SP-initiated SSO normally includes a `<AssertionConsumerServiceURL>` in the AuthnRequest. The IDP uses that URL to POST the SAMLResponse back. If the SP doesn't validate that the AuthnRequest's URL matches its configured ACS URL, an attacker can craft a request pointing to a server they control. The IDP then dutifully POSTs a valid signed assertion to the attacker.
-- 🔬 **What the attacker gets.** A real, signed SAML assertion with the victim's NameID and attributes, delivered straight to their server. They can then replay it against the real SP (replay attack), or use the NameID to track users across SPs (privacy leak).
-- 🛠 **Mitigations at the IDP side.**
-  - The IDP should validate that the AuthnRequest's `AssertionConsumerServiceURL` is on the SP's allowlist (typically derived from the SP's metadata).
-  - Reject AuthnRequests where the URL is missing, malformed, or points to a host not in metadata.
-  - Some IDPs allow SPs to *opt-in* to "IDP-initiated SSO only" — disable this unless you need it.
-- 🛠 **Mitigations at the SP side.**
-  - Bind the AuthnRequest to a known SP entityID before the IDP trusts the URL.
-  - Maintain a per-SP ACS URL allowlist (one URL per SP, in metadata).
-  - Don't accept AuthnRequests from new SPs without metadata exchange.
-- 🧪 **Test.** Send an AuthnRequest with `AssertionConsumerServiceURL=https://attacker.example/steal`. IDP must reject before POSTing the assertion.
+## 🛡 At the IDP (your configuration)
 
-</v-clicks>
+- **Validate `AssertionConsumerServiceURL` against the SP's metadata** before posting the assertion. Reject the AuthnRequest if the URL doesn't match an `<AssertionConsumerService>` declared in metadata. This is THE primary defense.
+- **Pin exactly one ACS URL per SP** in metadata. No wildcards. No multiple URLs (unless you genuinely have multiple legitimate endpoints, in which case document each).
+- **Validate the URL is well-formed** and uses HTTPS. Reject `http://`, IP addresses, and unknown schemes.
+- **Disable IDP-initiated SSO by default**. It's the mode that makes this attack easiest (no prior AuthnRequest → no InResponseTo binding). Opt-in only for SPs that explicitly need it.
+- **Audit log every AuthnRequest rejection** with the offending URL and SP entityID. If your logs show a sudden spike in rejected ACS URLs from one source, you have an active probe.
+- **Reject AuthnRequests with missing or malformed `AssertionConsumerServiceURL`** — don't default to "use metadata's ACS URL"; require the SP to specify.
+
+## 🛡 At the SP (audit ask, not your config)
+
+- Bind the AuthnRequest to a known SP entityID before the IDP trusts the URL.
+- Maintain a per-SP ACS URL allowlist (one URL per SP, in metadata).
+- Don't accept AuthnRequests from new SPs without metadata exchange.
+
+## 🧪 Test
+
+Send an AuthnRequest (mocked via curl) with `AssertionConsumerServiceURL=https://attacker.example/steal`. The IDP must reject before POSTing the assertion. From the IDP admin's seat: this is a one-time setup test you can do per SP. Set up curl tests for the 5 SPs that process the most assertions, automate them in CI.
 
 <!--
 SSRF-via-ACS is the IDP-side bug. The protocol's design lets the SP say
 'POST it here,' and an SP that's been compromised, or a network attacker who
-can intercept the AuthnRequest, can say 'POST it to me.' The mitigation is
-defensive IDP behavior: validate the URL against metadata before sending
-anything. From the IDP admin's perspective, this is a configuration choice
-— allow IDP-initiated SSO only for SPs you trust to manage their own URLs
-correctly. From the SP's perspective, it's a metadata hygiene problem:
-publish a single ACS URL, never accept dynamic ones. Test with a curl that
-mocks the AuthnRequest and watch what the IDP does with a malicious ACS.
+can intercept the AuthnRequest, can say 'POST it to me.' From the IDP admin's
+perspective: your primary defense is metadata-driven URL validation. Every SP
+gets exactly one ACS URL pinned in metadata. AuthnRequests that specify a
+different URL are rejected. Disable IDP-initiated SSO unless explicitly
+needed — it removes the AuthnRequest binding entirely. The SP team needs to
+fix their URL hygiene. Test with curl that mocks the AuthnRequest and watch
+what the IDP does with a malicious ACS.
 -->
 
 ---
